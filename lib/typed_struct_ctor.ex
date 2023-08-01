@@ -101,15 +101,15 @@ defmodule TypedStructCtor do
     end
   end
 
-  def new(attrs, {_mod, _all, _required, _defaults}) when not is_map(attrs), do: {:error, :attributes_must_be_a_map}
-
-  def new(attrs, {mod, all, required, defaults}) do
+  def new(attrs, {mod, all, required, defaults}) when is_map(attrs) and not is_struct(attrs) do
     mod.__struct__()
     |> cast(attrs, all)
     |> apply_defaults(defaults)
     |> validate_required(required)
     |> apply_action(:new)
   end
+
+  def new(_attrs, {_mod, _all, _required, _defaults}), do: {:error, :attributes_must_be_a_map}
 
   def from(base_struct, attrs, not_mapped, {_mod, _all, _required, _defaults} = state) when is_struct(base_struct) do
     base_struct

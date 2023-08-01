@@ -80,6 +80,12 @@ defmodule TypedStructCtorTest do
                required_not_defaulted: {"can't be blank", [validation: :required]}
              ] == message.errors
     end
+
+    test "when a struct is provided, return error tuple. They should use `from` instead" do
+      {:ok, msg} = AStruct.new(%{required_not_defaulted: "4"})
+
+      assert {:error, :attributes_must_be_a_map} == AStruct.new(msg)
+    end
   end
 
   describe "new!/1" do
