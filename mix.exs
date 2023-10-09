@@ -5,11 +5,12 @@ defmodule TypedStructCtor.MixProject do
     [
       app: :typed_struct_ctor,
       version: "0.1.0",
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
       package: package(),
+      name: "TypedStructCtor",
       docs: [
         extras: ["README.md"]
       ]
@@ -17,13 +18,11 @@ defmodule TypedStructCtor.MixProject do
   end
 
   def application do
-    [
-      extra_applications: [:logger]
-    ]
+    []
   end
 
   defp description() do
-    "Plugin for typed struct to integrate with changeset"
+    "A `TypedStruct` plugin utilizing the plugin `TypedStructEctoChangeset` to provide validating constructors"
   end
 
   defp package() do

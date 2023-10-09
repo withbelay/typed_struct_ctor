@@ -15,9 +15,17 @@ Ecto `cast` is called for all attributes provided to the constructors, defaults 
 validation is performed.  
 
 The `new` functions return an ok/error tuple, while the `new!` functions return the struct, or
-raise if there were issues with `cast` or validation.
+raises if there were issues with `cast` or validation.
 
-The `from` functions are intended for messaging environments where a new message is created from a disjoint set of
+The `new` function takes an optional map of attributes, does
+[Changeset.cast](https://hexdocs.pm/ecto/Ecto.Changeset.html#cast/4) of all values matching the defined
+fields, validates any required fields, and finally does
+[Changeset.apply_action](https://hexdocs.pm/ecto/Ecto.Changeset.html#apply_action/2) to validate the changeset.
+Returns `{:ok, <struct>}` if everything is OK, `{:error, <changeset>}` if there were issues with `cast` or validation.
+Because it's necessary to properly handle mappable fields, if a struct is passed to the `new` function,
+`{:error, :attributes_must_be_a_map}` is returned; use one of the `from` functions for that use case as described below.
+
+The `from` functions are useful in messaging environments where a new message is created from a disjoint set of
 values from a source message.  They are similar to the `new` functions but accept a "base struct" as the first argument 
 and a map of attributes as the second argument.  The base struct is mapped first to the field values, and the attributes 
 are merged on top.
@@ -25,24 +33,10 @@ are merged on top.
 ## Rationale
 
 [Ecto.Changeset](https://hexdocs.pm/ecto/Ecto.Changeset.html) is a great way to create validated
-structs.  However, if you're creating many validated struct they quickly become "noise", where writing
+structs.  However, if you're creating many validated structs they quickly become "noise", where writing
 these functions can be tedious, and bugs are easily introduced as struct changes are easily overlooked.
-When you include the effort needed to write boilerplate tests for boilerplate code, it can be tempting to skip struct
-validation altogether.
-
-To reduce the boilerplate, and make it easier to write tests, this plugin adds a set of constructors to your struct
-built from the field definitions themselves.  Thus the constructors are always up to date with the field definitions,
-and 
-
-The `new` function takes an optional map of attributes, does 
-[Changeset.cast](https://hexdocs.pm/ecto/Ecto.Changeset.html#cast/4) of all values matching the defined
-fields, validates any required fields, and finally does 
-[Changeset.apply_action](https://hexdocs.pm/ecto/Ecto.Changeset.html#apply_action/2) to validate the changeset.
-Returns `{:ok, <struct>}` if everything is OK, `{:error, <changeset>}` if there were issues with `cast` or validation.
-Because it's necessary to properly handle mappable fields, if a struct is passed to the `new` function,
-`{:error, :attributes_must_be_a_map}` is returned; use one of the `from` functions for that use case as described below.
-
-The `new!` function calls `new` and returns the struct if successful, and raises if not
+When the effort needed to write boilerplate tests for boilerplate code is factored in, it can be tempting to skip 
+struct validation altogether.
 
 
 ## Required Fields
@@ -74,9 +68,9 @@ Or by passing `required: false` to the `field` definition.
 ## Field-level Defaults
 `default` and `default_apply` can be provided to the `field` definition to specify a default value for the field.
 
-Though you can specify both `default` and `default_apply`, only one will be used.
+Though you can specify both `default` and `default_apply` (an MFA tuple), only one will be used.
 `default` will be used with Elixir's struct syntax (e.g. `%AStruct{}`).
-`default_apply` will be invoked when `new()` or `new!()` is used to construct (e.g. `AStruct.new!()`)
+`default_apply` will be invoked when one of the 5 constructor functions is used to construct (e.g. `AStruct.new!()`)
 
   ```elixir
     defmodule AStructWithDefaulting do
@@ -97,10 +91,44 @@ Though you can specify both `default` and `default_apply`, only one will be used
     %AStructWithDefaulting{field: 55}
   ```
 
+## Mappable Fields
+
+As mentioned above, when using `from` and `from!` functions, the first argument is a "source" struct whose matching-name
+fields will be copied first into the struct being constructed.  By default, all matching-name fields are copied, but
+the `mappable?` boolean attribute can be used to specify which fields are not copied.  This is useful when you want the
+newly constructed struct to have different values for a field than the source struct such as `created_at` or `id`.
+
+Not mapping over the source struct values will mean the field default values will be used instead if they exist.
+
+  ```elixir
+    defmodule AStructWithMappableFields do
+      use TypedStruct
+
+      typedstruct do
+        plugin(TypedStructEctoChangeset)
+        plugin(TypedStructCtor)
+
+        field :id, :string, mappable: false, default_apply: {Ecto.UUID, :generate, []}
+        field :create_at, :string, mappable: false, default_apply: {DateTime, :utc_now, []}
+        field :reason, :string
+      end
+    end
+
+    # In the example below, the `id` and `created_at` fields are `mappable: false` so they are not copied from the
+    # source struct.  So in the new struct, `:reason` is copied from the source struct, `:id` is provided in
+    # the attributes map, and `:created_at`, being nil after all the copying is done, causes its default to be used 
+    # instead, resulting in a new date.
+    iex()> source_struct = %SomeStruct{id: "42", created_at: "2020-01-01T00:00:00Z", reason: "because"}
+    %AStructWithMappableFields{id: "42", created_at: "2020-01-01T00:00:00Z", reason: "because"}
+
+    iex()> AStructWithMappableFields.from!(source_struct, %{id: "fixed_id_from_attributes"})
+    %SomeStruct{id: "fixed_id_from_attributes", created_at: "some new date", reason: "because"}
+  ```
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `typed_struct_plugin_ctor` to your list of dependencies in `mix.exs`:
+by adding `typed_struct_ctor` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
