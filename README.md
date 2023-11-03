@@ -7,36 +7,75 @@ needed to define elixir structs and provides a
 [plugin system](https://hexdocs.pm/typed_struct/TypedStruct.Plugin.html) for clients to extend the DSL.
 
 `TypedStructCtor` uses the `__changeset__` "reflection" function added by the plugin
-[TypedStructEctoChangeset](https://hexdocs.pm/typed_struct_ecto_changeset/TypedStructEctoChangeset.html) enabling
-Ecto.Changeset.cast
+[TypedStructEctoChangeset](https://hexdocs.pm/typed_struct_ecto_changeset/TypedStructEctoChangeset.html) which enables
+Ecto.Changeset.cast on fields defined within the TypedStruct macro.
+
+## Rationale
+
+[Ecto.Changeset](https://hexdocs.pm/ecto/Ecto.Changeset.html) is a great way to create validated
+structs.  However, if you've many validated structs they quickly become "noise", where writing
+these functions can be tedious, and bugs are easily introduced as struct changes are easily overlooked.
+When the effort needed to write boilerplate tests for boilerplate code is factored in, it can be tempting to skip
+struct validation altogether.
+
+## Simple Examples
+
+  ```elixir
+    defmodule AStruct do
+      use TypedStruct
+
+      typedstruct do
+        plugin(TypedStructEctoChangeset)
+        plugin(TypedStructCtor)
+
+        field :id, :string, default_apply: {Ecto.UUID, :generate, []}
+        field :integer_field, :integer
+        field :some_string, :string, required: false 
+      end
+    end
+
+    iex()> AStruct.new(%{some_string: "foo"})
+    {:error,
+     #Ecto.Changeset<
+       action: :new,
+       changes: %{id: "36153915-bfd7-4067-85e1-03c9b0662582", some_string: "foo"},
+       errors: [integer_field: {"can't be blank", [validation: :required]}],
+       data: #AStruct<>,
+       valid?: false
+     >}
+
+    # With `bang` and Ecto's field cast (string to integer)
+    iex()> AStruct.new!(%{some_string: "foo", integer_field: "42"})
+    %AStruct{
+      some_string: "foo",
+      integer_field: 42,
+      id: "2e28df41-c024-465e-901d-22c974f1d356"
+    }
+  ```
+
+The TypedStruct macro makes it much easier to define structs.  The TypedStructEctoChangeset plugin uses the field
+definitions to generate an Ecto.Changeset.cast function for fields in the struct.  And this plugin, TypedStructCtor,
+uses those `cast` functions to generate validating constructors for the enclosing struct created by TypedStruct.
 
 This plugin adds 5 constructors, `new/0`, `new/1`, `new!/1`, `from/2`, and `from!/2` to the given module.  
 Ecto `cast` is called for all attributes provided to the constructors, defaults are applied where needed, and
 validation is performed.  
 
-The `new` functions return an ok/error tuple, while the `new!` functions return the struct, or
+The `new` functions return {:ok, struct} or {:error, changeset}, while the `new!` functions return the struct, or
 raises if there were issues with `cast` or validation.
 
 The `new` function takes an optional map of attributes, does
 [Changeset.cast](https://hexdocs.pm/ecto/Ecto.Changeset.html#cast/4) of all values matching the defined
-fields, validates any required fields, and finally does
+fields, adds defaults for fields missing values, validates any required fields, and finally does
 [Changeset.apply_action](https://hexdocs.pm/ecto/Ecto.Changeset.html#apply_action/2) to validate the changeset.
 Returns `{:ok, <struct>}` if everything is OK, `{:error, <changeset>}` if there were issues with `cast` or validation.
 Because it's necessary to properly handle mappable fields, if a struct is passed to the `new` function,
 `{:error, :attributes_must_be_a_map}` is returned; use one of the `from` functions for that use case as described below.
 
-The `from` functions are useful in messaging environments where a new message is created from a disjoint set of
+The `from` functions are useful in messaging environments where a new message is created from a some set of
 values from a source message.  They are similar to the `new` functions but accept a "base struct" as the first argument 
 and a map of attributes as the second argument.  The base struct is mapped first to the field values, and the attributes 
 are merged on top.
-
-## Rationale
-
-[Ecto.Changeset](https://hexdocs.pm/ecto/Ecto.Changeset.html) is a great way to create validated
-structs.  However, if you're creating many validated structs they quickly become "noise", where writing
-these functions can be tedious, and bugs are easily introduced as struct changes are easily overlooked.
-When the effort needed to write boilerplate tests for boilerplate code is factored in, it can be tempting to skip 
-struct validation altogether.
 
 
 ## Required Fields
@@ -72,6 +111,8 @@ Though you can specify both `default` and `default_apply` (an MFA tuple), only o
 `default` will be used with Elixir's struct syntax (e.g. `%AStruct{}`).
 `default_apply` will be invoked when one of the 5 constructor functions is used to construct (e.g. `AStruct.new!()`)
 
+The `default_apply` function will only be invoked if the given field was not provided in the attributes.
+
   ```elixir
     defmodule AStructWithDefaulting do
       use TypedStruct
@@ -98,7 +139,8 @@ fields will be copied first into the struct being constructed.  By default, all 
 the `mappable?` boolean attribute can be used to specify which fields are not copied.  This is useful when you want the
 newly constructed struct to have different values for a field than the source struct such as `created_at` or `id`.
 
-Not mapping over the source struct values will mean the field default values will be used instead if they exist.
+Not mapping over the source struct values will mean the newly constructed struct will leave the new fields empty
+unless defaulted or provided to the constructor.
 
   ```elixir
     defmodule AStructWithMappableFields do
