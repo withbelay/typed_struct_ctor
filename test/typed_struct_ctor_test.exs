@@ -1,5 +1,9 @@
 defmodule SomeModule do
-  def some_function(value), do: value
+  def some_function(value) do
+    existing = Process.get(:some_function, [])
+    Process.put(:some_function, [value | existing])
+    value
+  end
 end
 
 defmodule AStruct do
@@ -79,6 +83,23 @@ defmodule TypedStructCtorTest do
       assert [
                required_not_defaulted: {"can't be blank", [validation: :required]}
              ] == message.errors
+    end
+
+    test "when attribute supplied for a defaulted field, do NOT invoke the field's default function" do
+      assert {:ok, %{required_defaulted: 43}} = AStruct.new(%{required_not_defaulted: 46})
+
+      # Show that the default function was invoked
+      assert Process.get(:some_function) == ["43", "42"]
+
+      # Delete the key from process memory
+      Process.delete(:some_function)
+      refute :some_function in Process.get_keys()
+
+      # Now create but with a value for the defaulted field
+      assert {:ok, %{required_defaulted: 45}} = AStruct.new(%{required_defaulted: 45, required_not_defaulted: 46})
+
+      # Show that the default function was NOT invoked
+      assert Process.get(:some_function) == ["42"]
     end
 
     test "when a struct is provided, return error tuple. They should use `from` instead" do

@@ -119,15 +119,20 @@ defmodule TypedStructCtor do
     |> new(state)
   end
 
+  # For each field that has a default_apply, apply the result of that function IF the field is not already changed/set
   def apply_defaults(%Ecto.Changeset{} = changeset, defaults) do
-    applied_default = fn
-      changeset, field, {m, f, a} -> get_change(changeset, field, apply(m, f, a))
-      changeset, field, {f, a} -> get_change(changeset, field, apply(f, a))
+    apply_default = fn
+      {m, f, a} -> apply(m, f, a)
+      {f, a} -> apply(f, a)
     end
 
     Enum.reduce(defaults, changeset, fn {field, apply}, changeset ->
-      value = applied_default.(changeset, field, apply)
-      cast(changeset, %{field => value}, [field])
+      if get_change(changeset, field) == nil do
+        defaulted_value = apply_default.(apply)
+        cast(changeset, %{field => defaulted_value}, [field])
+      else
+        changeset
+      end
     end)
   end
 end
