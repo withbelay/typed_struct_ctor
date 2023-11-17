@@ -22,7 +22,10 @@ defmodule TypedStructCtor.MixProject do
   end
 
   defp description() do
-    "A `TypedStruct` plugin utilizing the plugin `TypedStructEctoChangeset` to provide validating constructors"
+    """
+    A `TypedStruct` plugin utilizing Ecto.Changeset validation enabled by the plugin `TypedStructEctoChangeset` to
+    provide validating constructors"
+    """
   end
 
   defp package() do
@@ -37,9 +40,8 @@ defmodule TypedStructCtor.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false},
       {:ecto, "~> 3.10"},
-      {:typed_struct, "~> 0.3.0"},
-      {:typed_struct_ecto_changeset,
-       github: "/withbelay/typed_struct_ecto_changeset", ref: "0771ea2b0fbcd1e49e75b9b6a55512d16aee1192"}
+      {:typedstruct, "~> 0.5.2", only: [:dev, :test], runtime: false},
+      {:typed_struct_ecto_changeset, "~> 1.0.0"}
     ]
   end
 end
