@@ -8,6 +8,6 @@
   "file_system": {:hex, :file_system, "0.2.10", "fb082005a9cd1711c05b5248710f8826b02d7d1784e7c3451f9c1231d4fc162d", [:mix], [], "hexpm", "41195edbfb562a593726eda3b3e8b103a309b733ad25f3d642ba49696bf715dc"},
   "jason": {:hex, :jason, "1.4.1", "af1504e35f629ddcdd6addb3513c3853991f694921b1b9368b0bd32beb9f1b63", [:mix], [{:decimal, "~> 1.0 or ~> 2.0", [hex: :decimal, repo: "hexpm", optional: true]}], "hexpm", "fbb01ecdfd565b56261302f7e1fcc27c4fb8f32d56eab74db621fc154604a7a1"},
   "telemetry": {:hex, :telemetry, "1.2.1", "68fdfe8d8f05a8428483a97d7aab2f268aaff24b49e0f599faa091f1d4e7f61c", [:rebar3], [], "hexpm", "dad9ce9d8effc621708f99eac538ef1cbe05d6a874dd741de2e689c47feafed5"},
-  "typed_struct": {:hex, :typed_struct, "0.3.0", "939789e3c1dca39d7170c87f729127469d1315dcf99fee8e152bb774b17e7ff7", [:mix], [], "hexpm", "c50bd5c3a61fe4e198a8504f939be3d3c85903b382bde4865579bc23111d1b6d"},
-  "typed_struct_ecto_changeset": {:git, "https://github.com//withbelay/typed_struct_ecto_changeset.git", "0771ea2b0fbcd1e49e75b9b6a55512d16aee1192", [ref: "0771ea2b0fbcd1e49e75b9b6a55512d16aee1192"]},
+  "typed_struct_ecto_changeset": {:hex, :typed_struct_ecto_changeset, "1.0.0", "40b6946074eabef74b44a6c55c79bbbcfda1abff9f82bd6fcbb738931937fa8f", [:mix], [], "hexpm", "9dccc15467402a75749907b7d07441638e92f45a2460cb068f0269d82bbc7a4e"},
+  "typedstruct": {:hex, :typedstruct, "0.5.2", "a317be3ddfd020da09e1af8418b2653449541836eb5ff23bfdc642a5a4adcc59", [:make, :mix], [], "hexpm", "f9343bc65be73a550194e509c3110be966cb005bb7cba41614f29052e5aa408d"},
 }

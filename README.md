@@ -2,9 +2,9 @@
 
 A TypedStruct plugin to add validating constructors to a TypedStruct module
 
-The [TypedStruct](https://hexdocs.pm/typed_struct/TypedStruct.html) macro wraps field definitions to reduce boilerplate
+The [TypedStruct](https://hexdocs.pm/typedstruct/TypedStruct.html) macro wraps field definitions to reduce boilerplate
 needed to define elixir structs and provides a
-[plugin system](https://hexdocs.pm/typed_struct/TypedStruct.Plugin.html) for clients to extend the DSL.
+[plugin system](https://hexdocs.pm/typedstruct/TypedStruct.Plugin.html) for clients to extend the DSL.
 
 `TypedStructCtor` uses the `__changeset__` "reflection" function added by the plugin
 [TypedStructEctoChangeset](https://hexdocs.pm/typed_struct_ecto_changeset/TypedStructEctoChangeset.html) which enables
@@ -28,8 +28,14 @@ struct validation altogether.
         plugin(TypedStructEctoChangeset)
         plugin(TypedStructCtor)
 
+        # A required field with a default value provided by MFA tuple to return a UUID
         field :id, :string, default_apply: {Ecto.UUID, :generate, []}
+        
+        # A required field with no default, meaning it must be provided to the constructor.
+        # It's an `integer` with known `Ecto.cast` behavior, so for instance, string values are cast string to integer
         field :integer_field, :integer
+        
+        # An optional field with no default, meaning it will only have a value if provided to the constructor
         field :some_string, :string, required: false 
       end
     end
@@ -44,10 +50,10 @@ struct validation altogether.
        valid?: false
      >}
 
-    # With `bang` and Ecto's field cast (string to integer)
-    iex()> AStruct.new!(%{some_string: "foo", integer_field: "42"})
+    # With `bang` notation and demonstrating Ecto's field cast (string to integer)
+    iex()> AStruct.new!(%{some_string: "bar", integer_field: "42"})
     %AStruct{
-      some_string: "foo",
+      some_string: "bar",
       integer_field: 42,
       id: "2e28df41-c024-465e-901d-22c974f1d356"
     }
@@ -109,9 +115,10 @@ Or by passing `required: false` to the `field` definition.
 
 Though you can specify both `default` and `default_apply` (an MFA tuple), only one will be used.
 `default` will be used with Elixir's struct syntax (e.g. `%AStruct{}`).
-`default_apply` will be invoked when one of the 5 constructor functions is used to construct (e.g. `AStruct.new!()`)
+`default_apply` will be invoked when one of the 5 constructor functions is used (e.g. `AStruct.new!()`)
 
-The `default_apply` function will only be invoked if the given field was not provided in the attributes.
+The `default_apply` function is short-circuited and will only be invoked if the given field was not present in the 
+attributes.
 
   ```elixir
     defmodule AStructWithDefaulting do
@@ -140,7 +147,7 @@ the `mappable?` boolean attribute can be used to specify which fields are not co
 newly constructed struct to have different values for a field than the source struct such as `created_at` or `id`.
 
 Not mapping over the source struct values will mean the newly constructed struct will leave the new fields empty
-unless defaulted or provided to the constructor.
+unless defaulted or provided as attributes to the constructor.
 
   ```elixir
     defmodule AStructWithMappableFields do
@@ -168,13 +175,26 @@ unless defaulted or provided to the constructor.
   ```
 
 ## Installation
+Because this plugin supports the interface defined by the `TypedStruct` macro, installation assumes you've already
+added that dependency.
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `typed_struct_ctor` to your list of dependencies in `mix.exs`:
+While you can use the original [typed_struct](https://hex.pm/packages/typed_struct) library, it seems to no longer be
+maintained.  However, there is a fork [here](https://hex.pm/packages/typedstruct) that is quite active.
+
+The package can be installed by adding `typed_struct_ctor` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
+    # Choose either of the following `TypedStruct` libraries (both use the same name for the macro - `typedstruct`):
+    
+    # The original, no longer maintained library
+    {:typed_struct, "~> 0.3.0"},
+      
+    # Or the newer forked library
+    {:typedstruct, "~> 0.5.2"},
+
+    # And add this library  
     {:typed_struct_ctor, "~> 0.1.0"}
   ]
 end
