@@ -1,6 +1,10 @@
 defmodule TypedStructCtor do
-  @moduledoc """
-  """
+  @external_resource "README.md"
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.split("<!-- @moduledoc -->")
+             |> Enum.fetch!(1)
+
   use TypedStruct.Plugin
   use Ecto.Schema
   import Ecto.Changeset
@@ -18,6 +22,7 @@ defmodule TypedStructCtor do
     end
   end
 
+  @doc false
   def field(name, type, opts, env) do
     quote bind_quoted: [name: name, type: Macro.escape(type), opts: Macro.escape(opts), env: Macro.escape(env)] do
       TypedStructCtor.__field__(name, type, opts, env)
@@ -55,16 +60,11 @@ defmodule TypedStructCtor do
       Module.delete_attribute(__MODULE__, :required_fields)
       Module.delete_attribute(__MODULE__, :non_mapped_fields)
 
-      @spec new() :: {:ok, t()} | {:error, Ecto.Changeset.t()}
       def new(), do: new(%{})
 
-      @spec new!() :: t()
-      def new!(), do: new!(%{})
+      def new(attrs), do: TypedStructCtor.do_new(__ENV__.module, attrs)
 
-      @spec new(map()) :: {:ok, t()} | {:error, :attributes_must_be_a_map} | {:error, Ecto.Changeset.t()}
-      def new(attrs) do
-        TypedStructCtor.new(attrs, {__ENV__.module, __all__(), __required__(), __defaults__()})
-      end
+      def new!(), do: new!(%{})
 
       def new!(attrs) do
         case new(attrs) do
@@ -74,24 +74,13 @@ defmodule TypedStructCtor do
         end
       end
 
-      @spec from(struct()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
       def from(base_struct), do: from(base_struct, %{})
 
-      @spec from!(struct()) :: t()
+      def from(base_struct, attrs), do: TypedStructCtor.do_from(__ENV__.module, base_struct, attrs)
+
       def from!(base_struct), do: from!(base_struct, %{})
 
-      @spec from(struct(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-      def from(struct, attrs) do
-        TypedStructCtor.from(
-          struct,
-          attrs,
-          __not_mapped__(),
-          {__ENV__.module, __all__(), __required__(), __defaults__()}
-        )
-      end
-
-      @spec from(struct(), map()) :: t()
-      def from!(base_struct, attrs) when is_struct(base_struct) do
+      def from!(base_struct, attrs) do
         case from(base_struct, attrs) do
           {:ok, val} -> val
           {:error, :attributes_must_be_a_map} -> raise "Invalid #{__ENV__.module}.from!(): Attributes must be a map}"
@@ -101,25 +90,125 @@ defmodule TypedStructCtor do
     end
   end
 
-  def new(attrs, {mod, all, required, defaults}) when is_map(attrs) and not is_struct(attrs) do
+  @spec new() :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @doc "Create a new struct with default values"
+  def new(), do: nil
+
+  @spec new(attrs :: map()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @doc """
+  Create a new struct where values from keys in the provided attributes map are copied
+  to like-named fields in the struct.
+
+  * Provided values will be cast to the appropriate field type.
+  * Fields in the newly constructed struct that are not in the provided map will
+    be set to their default values.
+  * Required fields that are nil will result in a Ecto.Changeset error
+  """
+  def new(_attrs), do: nil
+
+  @spec new!() :: struct()
+  @doc "Create a new struct with default values.  Raises if the new struct cannot be validated."
+  def new!(), do: nil
+
+  @spec new!(attrs :: map()) :: struct()
+  @doc """
+  Create a new struct where values from keys in the provided attributes map are copied
+  to like-named fields in the struct.  Raises if the new struct cannot be validated.
+
+  * Provided values will be cast to the appropriate field type.
+  * Fields in the newly constructed struct that are not in the provided map will
+    be set to their default values.
+  * Any cast error or missing required field will result in a raise
+  """
+  def new!(_attrs), do: nil
+
+  @spec from(base_struct :: struct()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @doc """
+  Create a new struct where values from fields in the provided struct are copied.
+
+  The `from/1` constructor is useful for event driven systems where it is common to create
+  a new event from a given "triggering" event
+
+  * Provided values from `base_struct` will be cast to the appropriate field type.
+  * Fields in the newly constructed struct that are not provided map will
+    be set to their default values.
+  * Required fields that are nil will result in a Ecto.Changeset error
+  """
+  def from(_base_struct), do: nil
+
+  @spec from(base_struct :: struct(), attrs :: map()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @doc """
+  Create a new struct where values from fields in the provided struct are copied, then values
+  from the provided attributes map are copied to like-named fields in the struct; overwriting
+  any values copied from the base_struct.
+
+  The `from/2` constructor is useful for event driven systems where it is common to create
+  a new event from a given "triggering" event
+
+  * Provided values from `base_struct` will be cast to the appropriate field type.
+  * Fields in the newly constructed struct that are not provided map will
+    be set to their default values.
+  * Required fields that are nil will result in a Ecto.Changeset error
+  """
+  def from(_base_struct, _attrs), do: nil
+
+  @spec from!(base_struct :: struct()) :: struct()
+  @doc """
+  Create a new struct where values from fields in the provided struct are copied.  Raising if the new struct
+  cannot be validated.
+
+  The `from!/1` constructor is useful for event driven systems where it is common to create
+  a new event from a given "triggering" event
+
+  * Provided values from `base_struct` will be cast to the appropriate field type.
+  * Fields in the newly constructed struct that are not provided map will
+    be set to their default values.
+  * Any cast error or missing required field will result in a `raise`
+  """
+  def from!(_base_struct), do: nil
+
+  @spec from!(base_struct :: struct(), attrs :: map()) :: struct()
+  @doc """
+  Create a new struct where values from fields in the provided struct are copied, then values
+  from the provided attributes map are copied to like-named fields in the struct; overwriting
+  any values copied from the base_struct.  Raising if the new struct cannot be validated.
+
+  The `from!/2` constructor is useful for event driven systems where it is common to create
+  a new event from a given "triggering" event
+
+  * Provided values from `base_struct` will be cast to the appropriate field type.
+  * Fields in the newly constructed struct that are not provided map will
+    be set to their default values.
+  * Any cast error or missing required field will result in a `raise`
+  """
+  def from!(_base_struct, _attrs), do: nil
+
+  @doc false
+  def do_new(mod, attrs) when not is_struct(attrs) and is_map(attrs) do
     mod.__struct__()
-    |> cast(attrs, all)
-    |> apply_defaults(defaults)
-    |> validate_required(required)
+    |> cast(attrs, mod.__all__())
+    |> TypedStructCtor.apply_defaults(mod.__defaults__())
+    |> validate_required(mod.__required__())
     |> apply_action(:new)
   end
 
-  def new(_attrs, {_mod, _all, _required, _defaults}), do: {:error, :attributes_must_be_a_map}
+  def do_new(_mod, _attrs), do: {:error, :attributes_must_be_a_map}
 
-  def from(base_struct, attrs, not_mapped, {_mod, _all, _required, _defaults} = state) when is_struct(base_struct) do
-    base_struct
-    |> Map.from_struct()
-    |> Map.drop(not_mapped)
-    |> Map.merge(attrs)
-    |> new(state)
+  @doc false
+  def do_from(mod, base_struct, attrs) when is_struct(base_struct) do
+    attrs =
+      base_struct
+      |> Map.from_struct()
+      |> Map.drop(mod.__not_mapped__())
+      |> Map.merge(attrs)
+
+    TypedStructCtor.do_new(mod, attrs)
   end
 
+  def do_from(_mod, _base_struct, _attrs), do: {:error, :base_struct_must_be_a_struct}
+
   # For each field that has a default_apply, apply the result of that function IF the field is not already changed/set
+  @doc false
   def apply_defaults(%Ecto.Changeset{} = changeset, defaults) do
     apply_default = fn
       {m, f, a} -> apply(m, f, a)
