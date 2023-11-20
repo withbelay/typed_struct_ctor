@@ -12,7 +12,11 @@ defmodule TypedStructCtor.MixProject do
       package: package(),
       name: "TypedStructCtor",
       docs: [
-        extras: ["README.md"]
+        main: "TypedStructCtor",
+        extras: [
+          "README.md",
+          "LICENSE.md": [title: "License"]
+        ]
       ]
     ]
   end
@@ -30,7 +34,7 @@ defmodule TypedStructCtor.MixProject do
 
   defp package() do
     [
-      licenses: ["Apache 2.0"],
+      licenses: ["MIT"],
       links: %{"Github" => "https://github.com/withbelay/typed_struct_ctor"}
     ]
   end
@@ -40,7 +44,8 @@ defmodule TypedStructCtor.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false},
       {:ecto, "~> 3.10"},
-      {:typedstruct, "~> 0.5.2", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.30", only: :dev, runtime: false},
+      {:typedstruct, "~> 0.5.2"},
       {:typed_struct_ecto_changeset, "~> 1.0.0"}
     ]
   end

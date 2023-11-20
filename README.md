@@ -1,3 +1,5 @@
+<!-- @moduledoc -->
+
 # TypedStructCtor
 
 A TypedStruct plugin to add validating constructors to a TypedStruct module
@@ -32,10 +34,12 @@ struct validation altogether.
         field :id, :string, default_apply: {Ecto.UUID, :generate, []}
         
         # A required field with no default, meaning it must be provided to the constructor.
-        # It's an `integer` with known `Ecto.cast` behavior, so for instance, string values are cast string to integer
+        # It's an `integer` with known `Ecto.cast` behavior, so for instance, string values are cast 
+        # for example string to integer
         field :integer_field, :integer
         
-        # An optional field with no default, meaning it will only have a value if provided to the constructor
+        # An optional field with no default, meaning it will only have a value if provided to the 
+        # constructor
         field :some_string, :string, required: false 
       end
     end
@@ -152,26 +156,43 @@ unless defaulted or provided as attributes to the constructor.
   ```elixir
     defmodule AStructWithMappableFields do
       use TypedStruct
-
+    
       typedstruct do
         plugin(TypedStructEctoChangeset)
         plugin(TypedStructCtor)
-
-        field :id, :string, mappable: false, default_apply: {Ecto.UUID, :generate, []}
-        field :create_at, :string, mappable: false, default_apply: {DateTime, :utc_now, []}
-        field :reason, :string
+    
+        field(:id, :string, mappable?: false, default_apply: {Ecto.UUID, :generate, []})
+        field(:created_at, :utc_datetime_usec, mappable?: false, default_apply: {DateTime, :utc_now, []})
+        field(:reason, :string)
       end
     end
 
-    # In the example below, the `id` and `created_at` fields are `mappable: false` so they are not copied from the
-    # source struct.  So in the new struct, `:reason` is copied from the source struct, `:id` is provided in
-    # the attributes map, and `:created_at`, being nil after all the copying is done, causes its default to be used 
-    # instead, resulting in a new date.
-    iex()> source_struct = %SomeStruct{id: "42", created_at: "2020-01-01T00:00:00Z", reason: "because"}
-    %AStructWithMappableFields{id: "42", created_at: "2020-01-01T00:00:00Z", reason: "because"}
+    # In the example below, the `id` and `created_at` fields are `mappable?: false` so they are not 
+    # copied from the source struct.  So in the new struct, `:reason` is copied from the source 
+    # struct, `:id` is provided in the attributes map, and `:created_at`, being nil after all the
+    # copying is done, causes its default to be used instead, resulting in a new date.
+    iex()> source_struct = AStructWithMappableFields.new!(%{reason: "because"})
+    %AStructWithMappableFields{
+      reason: "because",
+      created_at: ~U[2023-11-18 04:57:16.754681Z],
+      id: "ffe94776-5d6e-4d84-9aeb-2862d874577f"
+    }
+    
+    iex()>  Process.sleep(5)
+    iex()>  mapped = AStructWithMappableFields.from!(source_struct, %{id: "id from attributes"})
+    %AStructWithMappableFields{
+      reason: "because",
+      created_at: ~U[2023-11-18 04:57:16.766353Z],
+      id: "id from attributes"
+    }
 
-    iex()> AStructWithMappableFields.from!(source_struct, %{id: "fixed_id_from_attributes"})
-    %SomeStruct{id: "fixed_id_from_attributes", created_at: "some new date", reason: "because"}
+    iex()> Process.sleep(5)
+    iex()> mapped = AStructWithMappableFields.from!(source_struct, %{reason: "I said so"})
+    %AStructWithMappableFields{
+      reason: "I said so",
+      created_at: ~U[2023-11-18 04:57:16.772312Z],
+      id: "a09be86b-373a-48f0-9d74-faee10037421"
+    }
   ```
 
 ## Installation
@@ -186,9 +207,11 @@ The package can be installed by adding `typed_struct_ctor` to your list of depen
 ```elixir
 def deps do
   [
-    # Choose either of the following `TypedStruct` libraries (both use the same name for the macro - `typedstruct`):
+    # Choose either of the following `TypedStruct` libraries 
+    # both use the same name for the macro - `typedstruct` but
+    # but are mutually exclusive:
     
-    # The original, no longer maintained library
+    # The original, but no longer maintained library
     {:typed_struct, "~> 0.3.0"},
       
     # Or the newer forked library
@@ -199,7 +222,3 @@ def deps do
   ]
 end
 ```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/typed_struct_ctor>.
