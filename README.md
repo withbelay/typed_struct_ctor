@@ -12,6 +12,14 @@ needed to define elixir structs and provides a
 [TypedStructEctoChangeset](https://hexdocs.pm/typed_struct_ecto_changeset/TypedStructEctoChangeset.html) which enables
 Ecto.Changeset.cast on fields defined within the TypedStruct macro.
 
+## Try it out in Livebook
+
+Try the macro out in real time without having to install or write any of your own code
+
+To get started you need a running instance of [Livebook](https://livebook.dev/)
+
+[![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https://github.com/withbelay/typed_struct_ctor/blob/main/try_it_out.livemd)
+
 ## Rationale
 
 [Ecto.Changeset](https://hexdocs.pm/ecto/Ecto.Changeset.html) is a great way to create validated

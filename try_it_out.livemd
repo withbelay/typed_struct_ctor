@@ -1,0 +1,137 @@
+<!-- livebook:{"app_settings":{"access_type":"public","auto_shutdown_ms":3600000,"multi_session":true,"show_source":true,"slug":"TypedStructCtor"}} -->
+
+# TypedStructCtor - providing constructors for structs
+
+```elixir
+Mix.install([
+  {:typedstruct, "~> 0.5.2"},
+  {:typed_struct_ctor, "~> 0.1.0"},
+  {:typed_struct_ecto_changeset, "~> 1.0"}
+])
+```
+
+## Use TypedStructCtor to add Constructors to your structs
+
+Use the [Constructor](https://medium.com/r/?url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FConstructor_%28object-oriented_programming%29) functions (such as [new](https://hexdocs.pm/typed_struct_ctor/TypedStructCtor.html#new/1) and [new!](https://hexdocs.pm/typed_struct_ctor/TypedStructCtor.html#new!/1)) provided by the [TypedStructCtor](https://medium.com/r/?url=https%3A%2F%2Fhexdocs.pm%2Ftyped_struct_ctor%2FTypedStructCtor.html) macro to easily create validated structs.
+
+Using the [Domain Specific Language - DSL](https://en.wikipedia.org/wiki/Domain-specific_language) from the popular [TypedStruct](https://hexdocs.pm/typedstruct/readme.html) library you can easily create structs without the "noise" and duplication required by the [native syntax](https://hexdocs.pm/typed_struct_ctor/TypedStructCtor.html#new!/1).
+
+The TypedStructCtor plugin uses basic [Ecto.Changeset](https://hexdocs.pm/ecto/Ecto.Changeset.html#cast/4) enabled by the [TypedStructEctoChangeset plugin](https://hexdocs.pm/typed_struct_ecto_changeset/readme.html) to define basic Constructor functions that cast provided attributes, inject defaults for missing fields, and ensure required fields
+
+You can see for yourself in the code blocks below!  Enter the code block, make changes and execute the block (the "play" button just above and to the right of the code block)
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule TLDR do
+  use TypedStruct
+
+  typedstruct do
+    plugin(TypedStructEctoChangeset)
+    plugin(TypedStructCtor)
+
+    # A required field with a default value provided by MFA tuple returning a UUID
+    field(:id, :string, default_apply: {Ecto.UUID, :generate, []})
+
+    # Or perhaps defaulted DateTime?
+    field(:created_at, :utc_datetime_usec, default_apply: {DateTime, :utc_now, []})
+
+    # A required field with no default, meaning it must be provided to the constructor.
+    # It's an `integer` with known `Ecto.cast` behavior so, in this instance,
+    # string values are cast appropriately.  e.g. "42" => 42
+    field(:an_integer, :integer)
+
+    # An optional field with no default, meaning the new struct will
+    # only have a value if provided as an attribute to the constructor
+    field(:a_string, :string, required: false)
+  end
+end
+```
+
+## new() and new!()
+
+The`new/0`, `new!/0`, `new/1`, `new!/1` set of constructors take an optional map of attributes whose values will be cast to fields of like key-name in the struct under construction.
+
+For any field that has a default defined, it will be used if that field has no value in the attribute map.
+
+Finally, changeset will be validated and the struct returned
+
+```elixir
+# The "Bang" version returns validated struct and will raise if changeset errors
+# Note that the string value in supplied attribute map is cast to an integer
+TLDR.new!(%{a_string: "bar", an_integer: "42"})
+```
+
+```elixir
+# A valid non-bang version returns {:ok, <struct>}
+TLDR.new(%{a_string: "bar", an_integer: "42"})
+```
+
+```elixir
+# Here we omit the attribute for required field ":an_integer" to show error changeset
+TLDR.new(%{a_string: "foo"})
+```
+
+```elixir
+# The "bang" version will `raise` if the Ecto.Changeset validation fails
+TLDR.new!(%{a_string: "foo"})
+```
+
+## from() and from!() for Event Driven systems
+
+The `from/1`, `from!/1`, `from/2` and `from!/2` take a required struct as the first parameter and an optional map of attributes.
+
+The "from" constructors are especially useful for event driven systems where it is common to create new Events derived from a set of fields from the Causal event and some set of additional attributess.
+
+Values from like-named fields will be copied from the originating struct to the struct being constructed (unless the field in the target struct is not mappable), any supplied attributes will be merged, defaults for missing fields will added, then Ecto.Changeset validations invoked.
+
+It is common, for example, that all such event structs have an "id" field unique to every  instance, a "created_at" with a precision DateTime of when the event was constructed, a "correlation_id" that is copied from the "entry" event throughout the chain of related events, and sometimes a "causation_id" referencing the "id" of the event directly responsible for the given event.
+
+To facilitate this behavior, the `mappable?` field-level attribute specifies whether or not a given field should copy its value from the source struct which then allows the given field to be filled from a supplied function.
+
+By default all fields are `mappable?`, and can be overridden by field-level attributes when defining the struct
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Event do
+  use TypedStruct
+
+  typedstruct do
+    plugin(TypedStructEctoChangeset)
+    plugin(TypedStructCtor)
+
+    # Always generate a new ID
+    field(:id, :string, mappable?: false, default_apply: {Ecto.UUID, :generate, []})
+
+    # Always use current time for newly created struct
+    field(:created_at, :utc_datetime_usec,
+      mappable?: false,
+      default_apply: {DateTime, :utc_now, []}
+    )
+
+    # By default all fields are `mappable?` so we'll copy this field from source struct
+    field(:reason, :string)
+  end
+end
+```
+
+The example(s) below demonstrate how the `from` constructors handle `mappable?: false` fields.
+
+Given the source (Causal) Event
+
+```elixir
+source_struct = Event.new!(%{reason: "because"})
+```
+
+A new event can be created from the Causal event with overriding attributes.  Note the unique values for `id` and `created_at`
+
+```elixir
+Event.from!(source_struct, %{reason: "I said so"})
+```
+
+Here, the `id` field is provided in the attributes so will not be defaulted.
+
+```elixir
+Event.from!(source_struct, %{id: "id from attributes"})
+```
